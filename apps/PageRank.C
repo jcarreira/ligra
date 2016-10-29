@@ -23,6 +23,19 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "ligra.h"
 #include "math.h"
+#include <src/object_store/RDMAObjectStore.h>
+#include "config.h"
+
+#ifdef SIRIUS
+extern sirius::FullCacheStore objStore;
+//extern sirius::RDMAObjectStore objStore;
+#elif defined(SIRIUS2)
+extern symmetricVertex** objStore;
+#elif defined(SIRIUS3)
+extern symmetricVertex** objStore;
+#endif
+
+#include "store.h"
 
 template <class vertex>
 struct PR_F {
@@ -31,10 +44,22 @@ struct PR_F {
   PR_F(double* _p_curr, double* _p_next, vertex* _V) : 
     p_curr(_p_curr), p_next(_p_next), V(_V) {}
   inline bool update(uintE s, uintE d){ //update function applies PageRank equation
+#ifdef SIRIUS
+    vertex v_s = *reinterpret_cast<vertex*>(objStore.get(s + 1));
+    p_next[d] += p_curr[s]/v_s.getOutDegree();
+#elif defined(SIRIUS2)
+    vertex v_s = *objStore[s + 1];
+    p_next[d] += p_curr[s]/v_s.getOutDegree();
+#elif defined(SIRIUS3)
+    vertex v_s = *getStore(s+1);//*objStore[s + 1];
+    p_next[d] += p_curr[s]/v_s.getOutDegree();
+#else
     p_next[d] += p_curr[s]/V[s].getOutDegree();
+#endif
     return 1;
   }
   inline bool updateAtomic (uintE s, uintE d) { //atomic Update
+      exit(0);
     writeAdd(&p_next[d],p_curr[s]/V[s].getOutDegree());
     return 1;
   }
@@ -71,6 +96,16 @@ void Compute(graph<vertex>& GA, commandLine P) {
   long maxIters = P.getOptionLongValue("-maxiters",100);
   const intE n = GA.n;
   const double damping = 0.85, epsilon = 0.0000001;
+
+#ifdef SIRIUS
+  std::cout << "SIRIUS" << std::endl;
+#elif defined(SIRIUS2)
+  std::cout << "SIRIUS2" << std::endl;
+#elif defined(SIRIUS3)
+  std::cout << "SIRIUS3" << std::endl;
+#else
+  std::cout << "else" << std::endl;
+#endif
   
   double one_over_n = 1/(double)n;
   double* p_curr = newA(double,n);
@@ -84,14 +119,23 @@ void Compute(graph<vertex>& GA, commandLine P) {
   
   long iter = 0;
   while(iter++ < maxIters) {
-    vertexSubset output = edgeMap(GA,Frontier,PR_F<vertex>(p_curr,p_next,GA.V),0);
+    // for each edge
+    // we compute
+    // p_next[d] += p_curr[s]/V[s].getOutDegree();
+#ifdef SIRIUS
+    vertexSubset output = edgeMap2(GA,Frontier,PR_F<vertex>(p_curr,p_next,0),0);
+#else
+    vertexSubset output = edgeMap2(GA,Frontier,PR_F<vertex>(p_curr,p_next,GA.V),0);
+#endif
+    // for each vertex
+    // p_next[i] = damping*p_next[i] + addedConstant;
     vertexMap(Frontier,PR_Vertex_F(p_curr,p_next,damping,n));
     //compute L1-norm between p_curr and p_next
     {parallel_for(long i=0;i<n;i++) {
       p_curr[i] = fabs(p_curr[i]-p_next[i]);
       }}
     double L1_norm = sequence::plusReduce(p_curr,n);
-    if(L1_norm < epsilon) break;
+    if (L1_norm < epsilon) break;
     //reset p_curr
     vertexMap(Frontier,PR_Vertex_Reset(p_curr));
     swap(p_curr,p_next);

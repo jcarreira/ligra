@@ -63,6 +63,7 @@ struct vertex {
   intT degree;
   void del() {free(Neighbors);}
   vertex(intT* N, intT d) : Neighbors(N), degree(d) {}
+  vertex() : Neighbors(0), degree(0) {}
 };
 
 template <class intT>
