@@ -72,6 +72,6 @@ int parallel_main(int argc, char* argv[]) {
   edgeArray<uintT> EA = edgeRandomWithDimension<uintT>(dim, m, n);
   graph<uintT> G = graphFromEdges<uintT>(EA, sym);
   EA.del();
-  writeGraphToFile<uintT>(G, fname);
+  writeGraphToFile_edge<uintT>(G, fname);
   G.del();
 }

@@ -443,6 +443,23 @@ namespace benchIO {
     free(Out);
     return r;
   }
+  
+  template <class intT>
+  int writeGraphToFile_edge(graph<intT> G, char* fname) {
+    long m = G.m;
+    long n = G.n;
+    std::ofstream fout(fname);
+    for (long i=0; i < n; i++) {
+      vertex<intT> v = G.V[i];
+      for (long j = 0; j < v.degree; j++)  {
+          intT neig = v.Neighbors[j];
+          if (j > neig) {
+              fout << j << " " << neig << std::endl;
+          }
+      }
+    }
+    return 0;
+  }
 
   template <class intT>
   int writeWghGraphToFile(wghGraph<intT> G, char* fname) {
