@@ -40,16 +40,12 @@
 #include "parseCommandLine.h"
 #include "gettime.h"
 #include "config.h"
+#include "store.h"
 using namespace std;
 
 #include <src/object_store/RDMAObjectStore.h>
 #ifdef SIRIUS
-sirius::FullCacheStore objStore;
-//sirius::RDMAObjectStore objStore;
-#elif defined(SIRIUS2)
-symmetricVertex** objStore;
-#elif defined(SIRIUS3)
-symmetricVertex** objStore;
+Store my_store;
 #endif
 
 #include "store.h"
@@ -74,7 +70,7 @@ bool* edgeMapDense(graph<vertex> GA, bool* vertexSubset, F &f, bool parallel = 0
         // I don't know if this thing changes the vertex or not
         // worst case it does
       //vertex* v = objStore[i + 1];
-      vertex* v = reinterpret_cast<vertex*>(objStore.get(i + 1));
+      vertex* v = reinterpret_cast<vertex*>(getStore(i + 1));
       v->decodeInNghBreakEarly(i, vertexSubset, f, next, parallel);
       //objStore.put(&v, sizeof(v), i + 1);
 #else
@@ -142,11 +138,7 @@ vertexSubset edgeMap(graph<vertex> GA, vertexSubset &V, F f, intT threshold = -1
   {parallel_for (long i=0; i < m; i++){
   //  cout << "Get from store i: " << i << endl;
 #ifdef SIRIUS
-    vertex v = *reinterpret_cast<vertex*>(objStore.get(V.s[i] + 1));
-#elif defined(SIRIUS2)
-    vertex v = *reinterpret_cast<vertex*>(objStore[V.s[i] + 1]);
-#elif defined(SIRIUS3)
-    vertex v = *reinterpret_cast<vertex*>(getStore(V.s[i] + 1));//objStore[V.s[i] + 1]);
+    vertex v = *reinterpret_cast<vertex*>(getStore(V.s[i] + 1));
 #else
     vertex v = G[V.s[i]];
 #endif
@@ -201,11 +193,7 @@ vertexSubset  edgeMap2(graph<symmetricVertex> GA,
   {parallel_for (long i=0; i < m; i++){
   //  cout << "Get from store i: " << i << endl;
 #ifdef SIRIUS
-    symmetricVertex v = *reinterpret_cast<symmetricVertex*>(objStore.get(V.s[i] + 1));
-#elif defined(SIRIUS2)
-    symmetricVertex v = *objStore[V.s[i] + 1];
-#elif defined(SIRIUS3)
-    symmetricVertex v = *getStore(V.s[i] + 1);//objStore[V.s[i] + 1];
+    symmetricVertex v = *reinterpret_cast<symmetricVertex*>(getStore(V.s[i] + 1));
 #else
     symmetricVertex v = G[V.s[i]];
 #endif
@@ -274,10 +262,8 @@ template<class vertex>
 void Compute(graph<vertex>&, commandLine);
 
 int parallel_main(int argc, char* argv[]) {
-#ifdef SIRIUS2
-  objStore = new symmetricVertex*[10000000];
-#elif defined(SIRIUS3)
-  objStore = new symmetricVertex*[10000000];
+#ifdef SIRIUS
+    init_store();
 #endif
   commandLine P(argc,argv," [-s] <inFile>");
   char* iFile = P.getArgument(0);

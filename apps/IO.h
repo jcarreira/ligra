@@ -30,15 +30,12 @@
 #include "utils.h"
 #include "graph.h"
 #include "config.h"
+#include "store.h"
 
 #include <src/object_store/RDMAObjectStore.h>
 
 #ifdef SIRIUS
-extern sirius::FullCacheStore objStore;
-#elif defined(SIRIUS2)
-extern symmetricVertex** objStore;
-#elif defined(SIRIUS3)
-extern symmetricVertex** objStore;
+extern Store my_store;
 #endif
 
 using namespace std;
@@ -196,8 +193,7 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric) {
 #ifndef SIRIUS  
   vertex* v = newA(vertex,n);
 #else
-  objStore.printStats();
-  //std::cout << "objStore.max_size(): " << objStore.max_size() << std::endl;
+ // objStore.printStats();
 #endif
 
   std::cout << "Setting vertices" << std::endl;
@@ -207,21 +203,21 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric) {
     uintT l = ((i == n-1) ? m : offsets[i+1])-offsets[i];
 
 #ifdef SIRIUS
-    vertex v;
-    v.setOutDegree(l); 
+    vertex* v = new vertex;
+    v->setOutDegree(l); 
 #else
     v[i].setOutDegree(l); 
 #endif
 #ifndef WEIGHTED
 #ifdef SIRIUS
-    v.setOutNeighbors(edges+o);     
+    v->setOutNeighbors(edges+o);     
 #else // SIRIUS
     v[i].setOutNeighbors(edges+o);     
 #endif // SIRIUS
 #else // WEIGHTED
 
 #ifdef SIRIUS
-    v.setOutNeighbors(edges+2*o);
+    v->setOutNeighbors(edges+2*o);
 #else // SIRIUS
     v[i].setOutNeighbors(edges+2*o);
 #endif // SIRIUS
@@ -229,20 +225,12 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric) {
 #endif // WEIGHTED
 
 #ifdef SIRIUS
-    objStore.put(&v, sizeof(v), i + 1);
+    putStore(i + 1, v);
     //objStore.put(&v, sizeof(v), i + 1);
-#elif defined(SIRIUS2)
-    objStore[i + 1] = v;
-#elif defined(SIRIUS3)
-    putStore(i+1, v);
 #endif
     if (i % 1000000 == 0)
         std::cout << i << std::endl;
     }}
-
-#ifdef SIRIUS
-  objStore.printStats();
-#endif
 
   if(!isSymmetric) {
     uintT* tOffsets = newA(uintT,n);
@@ -257,7 +245,7 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric) {
     {parallel_for(long i=0;i<n;i++){
       uintT o = offsets[i];
 #ifdef SIRIUS
-      vertex v = *reinterpret_cast<vertex*>(objStore.get(i + 1));
+      vertex v = *reinterpret_cast<vertex*>(getStore(i + 1));
       for(uintT j=0;j<v.getOutDegree();j++){	  
 #else
       for(uintT j=0;j<v[i].getOutDegree();j++){	  
@@ -316,7 +304,7 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric) {
       uintT l = ((i == n-1) ? m : tOffsets[i+1])-tOffsets[i];
    
 #ifdef SIRIUS 
-      vertex *v = reinterpret_cast<vertex*>(objStore.get(i + 1));
+      vertex *v = reinterpret_cast<vertex*>(getStore(i + 1));
       v->setInDegree(l);
 #else
       v[i].setInDegree(l);
@@ -342,7 +330,7 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric) {
 #endif // WEIGHTED
 
 #ifdef SIRIUS
-      objStore.put(v, sizeof(*v), i + 1);
+      putStore(i + 1, v);
 #endif
       }}    
 
@@ -595,7 +583,7 @@ graph<vertex> readCompressedGraph(char* fname, bool isSymmetric) {
     V[i].setOutDegree(d);
     V[i].setOutNeighbors(edges+o);
 #ifdef SIRIUS
-    objStore.put(&V[i], sizeof(vertex), i);
+    putStore(i, &V[i]);
 #endif
   }
 

@@ -27,12 +27,7 @@
 #include "config.h"
 
 #ifdef SIRIUS
-extern sirius::FullCacheStore objStore;
-//extern sirius::RDMAObjectStore objStore;
-#elif defined(SIRIUS2)
-extern symmetricVertex** objStore;
-#elif defined(SIRIUS3)
-extern symmetricVertex** objStore;
+extern Store my_store;
 #endif
 
 #include "store.h"
@@ -45,13 +40,7 @@ struct PR_F {
     p_curr(_p_curr), p_next(_p_next), V(_V) {}
   inline bool update(uintE s, uintE d){ //update function applies PageRank equation
 #ifdef SIRIUS
-    vertex v_s = *reinterpret_cast<vertex*>(objStore.get(s + 1));
-    p_next[d] += p_curr[s]/v_s.getOutDegree();
-#elif defined(SIRIUS2)
-    vertex v_s = *objStore[s + 1];
-    p_next[d] += p_curr[s]/v_s.getOutDegree();
-#elif defined(SIRIUS3)
-    vertex v_s = *getStore(s+1);//*objStore[s + 1];
+    vertex v_s = *reinterpret_cast<vertex*>(getStore(s + 1));
     p_next[d] += p_curr[s]/v_s.getOutDegree();
 #else
     p_next[d] += p_curr[s]/V[s].getOutDegree();
@@ -99,12 +88,6 @@ void Compute(graph<vertex>& GA, commandLine P) {
 
 #ifdef SIRIUS
   std::cout << "SIRIUS" << std::endl;
-#elif defined(SIRIUS2)
-  std::cout << "SIRIUS2" << std::endl;
-#elif defined(SIRIUS3)
-  std::cout << "SIRIUS3" << std::endl;
-#else
-  std::cout << "else" << std::endl;
 #endif
   
   double one_over_n = 1/(double)n;
